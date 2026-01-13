@@ -36,16 +36,12 @@ Part 1: Take a Look at `Cartpole` Rl Agent
 ### Train the `Cartpole` RL Agent
 According to the [Training with an RL Agent Tutorial](https://isaac-sim.github.io/IsaacLab/main/source/tutorials/03_envs/run_rl_training.html#training-with-an-rl-agent), the `Cartpole` RL Agent can be headlessly train with off-screen rendering by running the following command in the `IsaacLab` directory
 
-    python source/standalone/workflows/sb3/train.py --task Isaac-Cartpole-v0 --num_envs 64 --headless --video
-
-Note that you can adjust the video length and the interval between each records by specifying the parameters `--video_length` and `--video_interval` respectively. For more information, please check the [Recording video clips during training Guide](https://isaac-sim.github.io/IsaacLab/main/source/how-to/record_video.html).
+    python scripts/reinforcement_learning/sb3/train.py --task Isaac-Cartpole-v0 --num_envs 64 --headless 
 
 ### Visualize the Training Results
 The mean of the episode cumulative reward (return) and the episode length for the first one hundred terminated agents with respect to the timesteps can be observed using `TensorBoard` by executing the following command:
 
     python -m tensorboard.main --logdir logs/sb3/Isaac-Cartpole-v0
-
-The video recorded during training is located in `logs/sb3/Isaac-Cartpole-v0`.
 
 ### Questions
 
