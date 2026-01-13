@@ -134,7 +134,7 @@ or
 you can excute following command line
 
 ```
-python source/standalone/environments/list_envs.py
+python source/environments/list_envs.py
 ```
 
 ![image-2](https://github.com/user-attachments/assets/9f5f0ac4-7c38-4378-b3da-a74caf90bac9)
