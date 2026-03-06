@@ -82,7 +82,16 @@ class BaseAlgorithm():
         """
 
         # ========= put your code here =========#
-        pass
+        # ดึงข้อมูล state จาก dictionary (IsaacLab มักจะเก็บไว้ใน key ชื่อ "policy")
+        # และแปลงจาก PyTorch Tensor เป็น Numpy Array
+        state_tensor = obs["policy"][0]
+        state_array = state_tensor.cpu().numpy()
+        
+        # นำ State มาคูณกับ Weight แล้วปัดเศษเป็นจำนวนเต็ม
+        discretized = np.round(state_array * self.discretize_state_weight).astype(int)
+        
+        # แปลงเป็น tuple เพื่อให้สามารถใช้เป็น Key ใน Dictionary (Q-Table) ได้
+        return tuple(discretized)
         # ======================================#
 
     def get_discretize_action(self, obs_dis) -> int:
@@ -96,7 +105,19 @@ class BaseAlgorithm():
             int: Chosen discrete action index.
         """
         # ========= put your code here =========#
-        pass
+        # โอกาส Epsilon: ทำการสุ่ม Action (Exploration)
+        if np.random.rand() < self.epsilon:
+            return np.random.randint(self.num_of_action)
+        
+        # โอกาส 1 - Epsilon: เลือก Action ที่ดีที่สุด (Exploitation)
+        else:
+            # ถ้าเป็น Double Q-Learning ต้องเอาตาราง Qa และ Qb มาบวกกันเพื่อหาค่า Max
+            if self.control_type == ControlType.DOUBLE_Q_LEARNING:
+                combined_q = self.qa_values[obs_dis] + self.qb_values[obs_dis]
+                return int(np.argmax(combined_q))
+            # อัลกอริทึมปกติ ดูจากตาราง q_values ได้เลย
+            else:
+                return int(np.argmax(self.q_values[obs_dis]))
         # ======================================#
     
     def mapping_action(self, action):
@@ -111,7 +132,16 @@ class BaseAlgorithm():
             torch.Tensor: Scaled action tensor.
         """
         # ========= put your code here =========#
-        pass
+        act_min, act_max = self.action_range
+        
+        # เทียบบัญญัติไตรยางศ์เพื่อหาค่าแรงผลักรถเข็น
+        if self.num_of_action > 1:
+            mapped_val = act_min + (action / (self.num_of_action - 1)) * (act_max - act_min)
+        else:
+            mapped_val = 0.0
+            
+        # สร้าง PyTorch Tensor ส่งกลับไปให้ IsaacLab (ใช้ shape แบบ 2D: [num_envs, num_actions])
+        return torch.tensor([[mapped_val]], dtype=torch.float32, device="cuda:0")
         # ======================================#s
 
     def get_action(self, obs) -> torch.tensor:
@@ -133,7 +163,9 @@ class BaseAlgorithm():
         """
         Decay epsilon value to reduce exploration over time.
         """
-
+        # ลดค่า epsilon ลงโดยการคูณกับ decay rate 
+        # และใช้ max() เพื่อป้องกันไม่ให้ค่าต่ำกว่า final_epsilon
+        self.epsilon = max(self.final_epsilon, self.epsilon * self.epsilon_decay)
     def save_q_value(self, path, filename):
         """
         Save the model parameters to a JSON file.

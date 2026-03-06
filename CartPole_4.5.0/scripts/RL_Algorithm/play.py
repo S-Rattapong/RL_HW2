@@ -78,64 +78,65 @@ def main():
     # ==================================================================== #
     # ========================= Can be modified ========================== #
 
-    num_of_action = None
-    action_range = [None, None]  # [min, max]
-    discretize_state_weight = [None, None, None, None]  # [pose_cart:int, pose_pole:int, vel_cart:int, vel_pole:int]
-    learning_rate = None
-    n_episodes = None
-    start_epsilon = None
-    epsilon_decay = None  # reduce the exploration over time
-    final_epsilon = None
-    discount = None
+    # 1. ตั้งค่าพารามิเตอร์ให้ "ตรงเป๊ะ" กับตอน Train
+    num_of_action = 5
+    action_range = [-2.0, 2.0]
+    discretize_state_weight = [10, 100, 10, 100]
 
+    task_name = str(args_cli.task).split('-')[0]  # จะได้คำว่า Stabilize
+    Algorithm_name = "Q_Learning"
+
+    # 2. สร้าง Agent (จุดสำคัญ: ตอนเล่นจริงเราต้องตั้ง epsilon=0 เพื่อไม่ให้มันสุ่มมั่วซั่ว และใช้ความรู้ 100%)
     agent = Q_Learning(
         num_of_action=num_of_action,
         action_range=action_range,
         discretize_state_weight=discretize_state_weight,
-        learning_rate=learning_rate,
-        initial_epsilon=start_epsilon,
-        epsilon_decay=epsilon_decay,
-        final_epsilon=final_epsilon,
-        discount_factor=discount
+        learning_rate=0.1,
+        initial_epsilon=0.0,   # <--- ตั้งเป็น 0 เพื่อบังคับ Exploitation
+        epsilon_decay=0.0,
+        final_epsilon=0.0,
+        discount_factor=0.99
     )
 
-    task_name = str(args_cli.task).split('-')[0]  # Stabilize, SwingUp
-    Algorithm_name = "Q_Learning"  
-    episode = 0
-    q_value_file = f"{Algorithm_name}_{episode}_{num_of_action}_{action_range[1]}_{discretize_state_weight[0]}_{discretize_state_weight[1]}.json"
+    # 3. กำหนดชื่อไฟล์สมอง (Q-Table) ที่จะโหลด
+    # ปกติลูป 5000 รอบ เซฟทุก 100 รอบ ไฟล์สุดท้ายจะอยู่ที่รอบ 4900
+    # **ข้อควรระวัง:** ให้ลองเช็คในโฟลเดอร์ q_value/Stabilize/Q_Learning อีกครั้งเพื่อความชัวร์ว่ามีไฟล์ชื่อนี้อยู่
+    target_episode = 4900 
+    q_value_file = f"{Algorithm_name}_{target_episode}_{num_of_action}_{action_range[1]}_{discretize_state_weight[0]}_{discretize_state_weight[1]}.json"
     full_path = os.path.join(f"q_value/{task_name}", Algorithm_name)
-    agent.load_q_value(full_path, q_value_file)
 
-    # reset environment
+    # โหลดไฟล์ Q-table
+    print(f"[INFO] กำลังโหลดสมองจาก: {full_path}/{q_value_file}")
+    try:
+        agent.load_q_value(full_path, q_value_file)
+        print("[INFO] โหลด Q-Table สำเร็จ! พร้อมลุย!")
+    except FileNotFoundError:
+        print("[ERROR] ไม่พบไฟล์ Q-Table รบกวนตรวจสอบชื่อไฟล์ในโฟลเดอร์ q_value ครับ")
+
+    # 4. ลูปรันแสดงผล
     obs, _ = env.reset()
     timestep = 0
-    # simulate environment
+
     while simulation_app.is_running():
-        # run everything in inference mode
         with torch.inference_mode():
-        
-            for episode in range(n_episodes):
+            # ให้ Agent เลือก Action จาก State ปัจจุบัน
+            action, _ = agent.get_action(obs)
+            
+            # ส่ง Action ไปให้ Environment รัน
+            next_obs, reward, terminated, truncated, _ = env.step(action)
 
+            # ถ้าไม้ล้ม หรือรถวิ่งชนขอบ (จบเกม) ให้รีเซ็ตเริ่มรอบใหม่ทันที
+            if terminated or truncated:
                 obs, _ = env.reset()
-                done = False
-
-                while not done:
-                    # agent stepping
-                    action, action_idx = agent.get_action(obs)
-
-                    # env stepping
-                    next_obs, reward, terminated, truncated, _ = env.step(action)
-
-                    done = terminated or truncated
-                    obs = next_obs
-        
-
+            else:
+                obs = next_obs
+                
         if args_cli.video:
             timestep += 1
-            # Exit the play loop after recording one video
             if timestep == args_cli.video_length:
                 break
-
+                
+    print("!!! ปิดระบบ !!!")
     # ==================================================================== #
 
     # close the simulator

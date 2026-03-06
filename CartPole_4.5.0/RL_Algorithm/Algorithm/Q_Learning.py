@@ -40,13 +40,31 @@ class Q_Learning(BaseAlgorithm):
             discount_factor=discount_factor,
         )
         
-    def update(
-        self,
-
-    ):
-        """
-        Update Q-values using Q-Learning.
-
-        This method applies the Q-Learning update rule to improve policy decisions by updating the Q-table.
-        """
-        pass
+    def update(self, obs, action, reward, next_obs, terminated):
+            """
+            Update the Q-table using the Q-learning algorithm.
+            """
+            # 1. แปลง State ปัจจุบันและ State ถัดไปให้เป็นแบบ Discretize (จำนวนเต็ม)
+            current_state = self.discretize_state(obs)
+            next_state = self.discretize_state(next_obs)
+            
+            # 2. ดึงค่า Q ปัจจุบันจากตาราง
+            current_q = self.q_values[current_state][action]
+            
+            # 3. หาค่า Q ที่ดีที่สุดของ State ถัดไป (จุดเด่นของ Q-Learning คือการใช้ Max)
+            if terminated:
+                # ถ้าไม้ล้มหรือรถออกนอกขอบ (จบเกม) State ถัดไปจะไม่มีค่า
+                max_next_q = 0.0
+            else:
+                # ถ้ายังไม่จบเกม ให้ดูว่าในอนาคตมี Action ไหนให้ค่า Q สูงสุด
+                max_next_q = np.max(self.q_values[next_state])
+                
+            # 4. คำนวณเป้าหมาย (TD Target) และความคลาดเคลื่อน (TD Error)
+            td_target = reward + (self.discount_factor * max_next_q)
+            td_error = td_target - current_q
+            
+            # 5. อัปเดตค่าลงในตาราง Q-Table ตามสมการ Q-Learning
+            self.q_values[current_state][action] = current_q + (self.lr * td_error)
+            
+            # เก็บค่า Error ไว้สำหรับวิเคราะห์ผล (Part 3)
+            self.training_error.append(float(td_error))

@@ -28,7 +28,7 @@ class SARSA(BaseAlgorithm):
             discount_factor (float): Discount factor for future rewards.
         """
         super().__init__(
-            control_type=ControlType.SARSA,
+            control_type=ControlType.TEMPORAL_DIFFERENCE,
             num_of_action=num_of_action,
             action_range=action_range,
             discretize_state_weight=discretize_state_weight,
@@ -39,13 +39,28 @@ class SARSA(BaseAlgorithm):
             discount_factor=discount_factor,
         )
         
-    def update(
-        self,
-
-    ):
+    def update(self, obs, action, reward, next_obs, terminated):
         """
         Update Q-values using SARSA .
 
         This method applies the SARSA update rule to improve policy decisions by updating the Q-table.
         """
-        pass
+        current_state = self.discretize_state(obs)
+        next_state = self.discretize_state(next_obs)
+        
+        current_q = self.q_values[current_state][action]
+        
+        if terminated:
+            next_q = 0.0
+        else:
+            # จุดสำคัญของ SARSA: ใช้ Policy ปัจจุบัน (Epsilon-greedy) สุ่มเลือก Action ล่วงหน้า
+            next_action = self.get_discretize_action(next_state)
+            next_q = self.q_values[next_state][next_action]
+            
+        # คำนวณ TD Target และ Error
+        td_target = reward + (self.discount_factor * next_q)
+        td_error = td_target - current_q
+        
+        # อัปเดตตาราง
+        self.q_values[current_state][action] = current_q + (self.lr * td_error)
+        self.training_error.append(float(td_error))

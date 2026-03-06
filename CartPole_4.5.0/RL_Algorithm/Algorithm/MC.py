@@ -39,13 +39,41 @@ class MC(BaseAlgorithm):
             discount_factor=discount_factor,
         )
         
-    def update(
-        self,
-        
-    ):
+    def update(self, obs, action, reward, next_obs, terminated):
         """
         Update Q-values using Monte Carlo.
 
         This method applies the Monte Carlo update rule to improve policy decisions by updating the Q-table.
         """
-        pass
+        current_state = self.discretize_state(obs)
+        
+        # 1. เก็บประวัติ (History) ของ Step ปัจจุบัน
+        self.obs_hist.append(current_state)
+        self.action_hist.append(action)
+        self.reward_hist.append(reward)
+        
+        # 2. จะทำการอัปเดตตารางก็ต่อเมื่อ Episode จบลงแล้วเท่านั้น
+        if terminated:
+            G = 0 # ตัวแปรเก็บ Cumulative Reward (ผลตอบแทนรวมสะสม)
+            
+            # ย้อนเวลาจากท้ายสุดของ Episode กลับมาจุดเริ่มต้น
+            for i in reversed(range(len(self.reward_hist))):
+                state = self.obs_hist[i]
+                act = self.action_hist[i]
+                r = self.reward_hist[i]
+                
+                # คำนวณ G = Reward + (Discount * G_ถัดไป)
+                G = r + self.discount_factor * G
+                
+                # นับว่าเคยมา state-action นี้ (เพื่อใช้ในอนาคตถ้าอยากหาแบบ 1/N)
+                self.n_values[state][act] += 1
+                
+                # อัปเดตตาราง Q ด้วยสมการ Q = Q + lr * (G - Q)
+                error = G - self.q_values[state][act]
+                self.q_values[state][act] += self.lr * error
+                self.training_error.append(float(error))
+                
+            # เคลียร์ประวัติความจำ เพื่อเริ่มรอบฝึก (Episode) ใหม่
+            self.obs_hist = []
+            self.action_hist = []
+            self.reward_hist = []

@@ -39,16 +39,40 @@ class Double_Q_Learning(BaseAlgorithm):
             discount_factor=discount_factor,
         )
         
-    def update(
-        self,
-        #========= put your code here =========#
-
-        
+    def update(self, obs, action, reward, next_obs, terminated
+        #========= put your code here =========# 
     ):
         """
         Update Q-values using Double Q-Learning.
 
         This method applies the Double Q-Learning update rule to improve policy decisions by updating the Q-table.
         """
-        pass
+        current_state = self.discretize_state(obs)
+        next_state = self.discretize_state(next_obs)
+        
+        # สุ่มโยนเหรียญ (0.5) เลือกว่าจะอัปเดตตาราง A หรือ B
+        if np.random.rand() < 0.5:
+            # อัปเดตตาราง Qa
+            if terminated:
+                td_target = reward
+            else:
+                best_next_action_a = np.argmax(self.qa_values[next_state])
+                td_target = reward + (self.discount_factor * self.qb_values[next_state][best_next_action_a])
+                
+            td_error = td_target - self.qa_values[current_state][action]
+            self.qa_values[current_state][action] += self.lr * td_error
+        else:
+            # อัปเดตตาราง Qb
+            if terminated:
+                td_target = reward
+            else:
+                best_next_action_b = np.argmax(self.qb_values[next_state])
+                td_target = reward + (self.discount_factor * self.qa_values[next_state][best_next_action_b])
+                
+            td_error = td_target - self.qb_values[current_state][action]
+            self.qb_values[current_state][action] += self.lr * td_error
+
+        # เก็บค่ารวม (Qa + Qb) ลงใน q_values หลัก เพื่อให้ฟังก์ชันตอนเอาไปใช้งานเลือก Action ได้
+        self.q_values[current_state][action] = self.qa_values[current_state][action] + self.qb_values[current_state][action]
+        self.training_error.append(float(td_error))
         #======================================#
