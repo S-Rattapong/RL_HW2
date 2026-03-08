@@ -98,6 +98,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         print("[INFO] Recording videos during training.")
         # print_dict(video_kwargs, nesting=4)
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
+    
+    from RL_Algorithm.Algorithm.Q_Learning import Q_Learning
+    from RL_Algorithm.Algorithm.SARSA import SARSA
+    from RL_Algorithm.Algorithm.Double_Q_Learning import Double_Q_Learning
+    from RL_Algorithm.Algorithm.MC import MC
 
     # ==================================================================== #
     # ========================= Can be modified ========================== #
@@ -107,7 +112,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     action_range = [-2.0, 2.0]         # ช่วงของแรงผลัก [min, max]
     discretize_state_weight = [1, 10, 1, 10]  # น้ำหนักในการแปลง State (เน้นขยายค่ามุมไม้ให้ละเอียดขึ้น)
     learning_rate = 0.05                # ความเร็วในการเรียนรู้ (Alpha)
-    n_episodes = 10000                  # จำนวนรอบที่จะให้ Agent ฝึกซ้อม
+    n_episodes = 20000                  # จำนวนรอบที่จะให้ Agent ฝึกซ้อม
     start_epsilon = 1.0                # เริ่มต้นด้วยการสุ่ม 100% (สำรวจโลกเต็มที่)
     epsilon_decay = 0.999              # อัตราการลดการสุ่ม (ค่อยๆ ลดลงทีละนิดในแต่ละ Episode)
     final_epsilon = 0.01               # สุ่มน้อยที่สุดที่ 1% (เหลือเผื่อไว้กัน AI ติดหล่ม)
@@ -116,6 +121,24 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     task_name = str(args_cli.task).split('-')[0]  # Stabilize, SwingUp
     Algorithm_name = "Q_Learning"
     
+    Algorithm_name = os.environ.get("RL_ALG", "Q_Learning")
+    print(f"\n=========================================")
+    print(f"Algorithm: {Algorithm_name}")
+    print(f"=========================================\n")
+
+    # 3. ใช้ if-elif เลือกสร้าง Agent ตามชื่อที่ส่งเข้ามา
+    if Algorithm_name == "Q_Learning":
+        agent = Q_Learning(num_of_action=num_of_action, action_range=action_range, discretize_state_weight=discretize_state_weight, learning_rate=learning_rate, initial_epsilon=start_epsilon, epsilon_decay=epsilon_decay, final_epsilon=final_epsilon, discount_factor=discount)
+    elif Algorithm_name == "SARSA":
+        agent = SARSA(num_of_action=num_of_action, action_range=action_range, discretize_state_weight=discretize_state_weight, learning_rate=learning_rate, initial_epsilon=start_epsilon, epsilon_decay=epsilon_decay, final_epsilon=final_epsilon, discount_factor=discount)
+    elif Algorithm_name == "Double_Q_Learning":
+        agent = Double_Q_Learning(num_of_action=num_of_action, action_range=action_range, discretize_state_weight=discretize_state_weight, learning_rate=learning_rate, initial_epsilon=start_epsilon, epsilon_decay=epsilon_decay, final_epsilon=final_epsilon, discount_factor=discount)
+    elif Algorithm_name == "MC":
+        agent = MC(num_of_action=num_of_action, action_range=action_range, discretize_state_weight=discretize_state_weight, learning_rate=learning_rate, initial_epsilon=start_epsilon, epsilon_decay=epsilon_decay, final_epsilon=final_epsilon, discount_factor=discount)
+    else:
+        print("ชื่อ Algorithm ไม่ถูกต้อง! โปรดตรวจสอบคำสั่งอีกครั้ง")
+        exit()
+
     # หมายเหตุ: ในไฟล์ Q_Learning.py ถ้าคุณตั้งชื่อคลาสว่า QLearning ให้แก้ตรงนี้ให้ตรงกันด้วยครับ
     # แต่ถ้าตั้งว่า Q_Learning ก็ใช้แบบนี้ได้เลย
     agent = Q_Learning(
@@ -206,5 +229,27 @@ if __name__ == "__main__":
     # close sim app
     simulation_app.close()
 
-    # python scripts/RL_Algorithm/plot_graph.py
-    # python scripts/RL_Algorithm/train.py --task Stabilize-Isaac-Cartpole-v0 --headless
+
+    # Plot graph ทีละ Algorithm
+    # python scripts/RL_Algorithm/plot_graph.py --alg Q_Learning
+
+    # python scripts/RL_Algorithm/plot_graph.py --alg SARSA
+
+    # python scripts/RL_Algorithm/plot_graph.py --alg Double_Q_Learning
+
+    # python scripts/RL_Algorithm/plot_graph.py --alg MC
+
+
+    # Run 1 Algorithm
+    # RL_ALG="Q_Learning" python scripts/RL_Algorithm/train.py --task Stabilize-Isaac-Cartpole-v0 --headless
+
+    # RL_ALG="SARSA" python scripts/RL_Algorithm/train.py --task Stabilize-Isaac-Cartpole-v0 --headless
+
+    # RL_ALG="Double_Q_Learning" python scripts/RL_Algorithm/train.py --task Stabilize-Isaac-Cartpole-v0 --headless
+
+    # RL_ALG="MC" python scripts/RL_Algorithm/train.py --task Stabilize-Isaac-Cartpole-v0 --headless
+
+
+
+    # Run 4 Algorithm
+    # RL_ALG="Q_Learning" python scripts/RL_Algorithm/train.py --task Stabilize-Isaac-Cartpole-v0 --headless && RL_ALG="SARSA" python scripts/RL_Algorithm/train.py --task Stabilize-Isaac-Cartpole-v0 --headless && RL_ALG="Double_Q_Learning" python scripts/RL_Algorithm/train.py --task Stabilize-Isaac-Cartpole-v0 --headless && RL_ALG="MC" python scripts/RL_Algorithm/train.py --task Stabilize-Isaac-Cartpole-v0 --headless
