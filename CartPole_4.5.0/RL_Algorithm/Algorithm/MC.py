@@ -53,7 +53,7 @@ class MC(BaseAlgorithm):
         self.reward_hist.append(reward)
         
         # 2. จะทำการอัปเดตตารางก็ต่อเมื่อ Episode จบลงแล้วเท่านั้น
-        if terminated:
+        if terminated or truncated :
             G = 0 # ตัวแปรเก็บ Cumulative Reward (ผลตอบแทนรวมสะสม)
             
             # ย้อนเวลาจากท้ายสุดของ Episode กลับมาจุดเริ่มต้น

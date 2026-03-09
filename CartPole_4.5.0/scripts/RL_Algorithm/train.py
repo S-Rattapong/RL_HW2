@@ -110,11 +110,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # hyperparameters (พารามิเตอร์พวกนี้สามารถปรับจูนทีหลังเพื่อผลลัพธ์ที่ดีขึ้นได้)
     num_of_action = 5                  # แบ่งแรงผลักรถเข็นเป็น 5 ระดับ (เช่น -2, -1, 0, 1, 2)
     action_range = [-2.0, 2.0]         # ช่วงของแรงผลัก [min, max]
-    discretize_state_weight = [1, 10, 1, 10]  # น้ำหนักในการแปลง State (เน้นขยายค่ามุมไม้ให้ละเอียดขึ้น)
-    learning_rate = 0.05                # ความเร็วในการเรียนรู้ (Alpha)
+    discretize_state_weight = [1, 1, 10, 10]  # น้ำหนักในการแปลง State (เน้นขยายค่ามุมไม้ให้ละเอียดขึ้น)
+    learning_rate = 0.2                # ความเร็วในการเรียนรู้ (Alpha)
     n_episodes = 20000                  # จำนวนรอบที่จะให้ Agent ฝึกซ้อม
     start_epsilon = 1.0                # เริ่มต้นด้วยการสุ่ม 100% (สำรวจโลกเต็มที่)
-    epsilon_decay = 0.999              # อัตราการลดการสุ่ม (ค่อยๆ ลดลงทีละนิดในแต่ละ Episode)
+    epsilon_decay = 0.9995              # อัตราการลดการสุ่ม (ค่อยๆ ลดลงทีละนิดในแต่ละ Episode)
     final_epsilon = 0.01               # สุ่มน้อยที่สุดที่ 1% (เหลือเผื่อไว้กัน AI ติดหล่ม)
     discount = 0.99                    # ให้ความสำคัญกับรางวัลในอนาคต (Gamma)
 
@@ -139,18 +139,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         print("ชื่อ Algorithm ไม่ถูกต้อง! โปรดตรวจสอบคำสั่งอีกครั้ง")
         exit()
 
-    # หมายเหตุ: ในไฟล์ Q_Learning.py ถ้าคุณตั้งชื่อคลาสว่า QLearning ให้แก้ตรงนี้ให้ตรงกันด้วยครับ
-    # แต่ถ้าตั้งว่า Q_Learning ก็ใช้แบบนี้ได้เลย
-    agent = Q_Learning(
-        num_of_action=num_of_action,
-        action_range=action_range,
-        discretize_state_weight=discretize_state_weight,
-        learning_rate=learning_rate,
-        initial_epsilon=start_epsilon,
-        epsilon_decay=epsilon_decay,
-        final_epsilon=final_epsilon,
-        discount_factor=discount
-    )
+
+    # สร้างเส้นทางโฟลเดอร์สำหรับเซฟเตรียมไว้เลยแต่แรก (แก้ปัญหาจุดที่ 1)
+    full_path = os.path.join(f"q_value/{task_name}", Algorithm_name)
+    if not os.path.exists(full_path):
+        os.makedirs(full_path)
 
     # เพิ่มตัวแปรสำหรับเก็บประวัติกราฟ
     reward_history = []
@@ -159,6 +152,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     obs, _ = env.reset()
     timestep = 0
     sum_reward = 0
+    
     # simulate environment
     while simulation_app.is_running():
         # run everything in inference mode
@@ -175,6 +169,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
                     reward_value = reward.item()
                     terminated_value = terminated.item() 
+                    truncated_value = truncated.item()
                     cumulative_reward += reward_value
 
                     agent.update(
@@ -182,33 +177,36 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                         action=action_idx,
                         reward=reward_value,
                         next_obs=next_obs,
-                        terminated=terminated_value
+                        terminated=terminated_value or truncated_value
                     )
 
                     done = terminated or truncated
                     obs = next_obs
                 
                 sum_reward += cumulative_reward
-                reward_history.append(cumulative_reward) # <--- เก็บประวัติ Reward ของรอบนี้
+                reward_history.append(cumulative_reward) 
                 
-                if episode % 100 == 0:
-                    print("avg_score: ", sum_reward / 100.0)
+                # แก้ไขจุดที่ 4: ไม่ปริ้นตอน episode 0
+                if episode % 100 == 0 and episode > 0:
+                    print(f"avg_score (Ep {episode-100} to {episode}): {sum_reward / 100.0:.2f}")
                     sum_reward = 0
 
-                    # Save Q-Learning agent
+                    # Save agent
                     q_value_file = f"{Algorithm_name}_{episode}_{num_of_action}_{action_range[1]}_{discretize_state_weight[0]}_{discretize_state_weight[1]}.json"
-                    full_path = os.path.join(f"q_value/{task_name}", Algorithm_name)
-                    if not os.path.exists(full_path):
-                        os.makedirs(full_path)
                     agent.save_q_value(full_path, q_value_file)
 
                 agent.decay_epsilon()
             
-            # === เพิ่มโค้ดส่วนนี้หลังจาก Train ครบ 5000 รอบ === #
-            print("[INFO] Saving plot data...")
+            # === เซฟไฟล์ตอนจบ (แก้ปัญหาจุดที่ 2 ป้องกัน Error) === #
+            print("\n[INFO] Saving plot data...")
             np.save(os.path.join(full_path, f"{Algorithm_name}_rewards.npy"), np.array(reward_history))
-            np.save(os.path.join(full_path, f"{Algorithm_name}_errors.npy"), np.array(agent.training_error))
-            print("[INFO] Data saved successfully!")
+            
+            # เช็คก่อนว่า Agent มีตัวแปรเก็บ Error ไหม ถ้ามีถึงจะเซฟ
+            if hasattr(agent, 'training_error'):
+                np.save(os.path.join(full_path, f"{Algorithm_name}_errors.npy"), np.array(agent.training_error))
+                print(f"[INFO] Saved both Rewards and Errors for {Algorithm_name}!")
+            else:
+                print(f"[INFO] Saved Rewards. (Note: {Algorithm_name} has no training_error attribute)")
             # =============================================== #
              
         if args_cli.video:
@@ -216,7 +214,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             if timestep == args_cli.video_length:
                 break
         
-        print("!!! Training is complete !!!")
+        print(f"!!! Training {Algorithm_name} is complete !!!\n")
         break
     # ==================================================================== #
 
